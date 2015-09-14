@@ -9,9 +9,12 @@ from flask_api.parsers import URLEncodedParser
 
 app = Flask(__name__)
 
+command = ''
+
 
 def _restart():
-    return subprocess.call('./hook.sh', shell=True)
+    global command
+    return subprocess.call(command, shell=True)
 
 
 @app.route('/', methods=['POST'])
@@ -27,10 +30,12 @@ def post_hook():
     else:
         response = 'Not gitlab, no action'
         logging.info(response)
-        return response, 200
+    return response, 200
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument("--command",
+                        help="reload command that should be executed")
     parser.add_argument("--debug",
                         help="get debug output",
                         action="store_true")
@@ -53,4 +58,12 @@ if __name__ == '__main__':
         logger.addHandler(logstash.TCPLogstashHandler(host=host,
                                                       port=int(port),
                                                       version=1))
+
+    if args.command:
+        global command
+        command = args.command
+    else:
+        logging.error('--command <script> is required for this webhook')
+        exit(1)
+
     app.run(host='0.0.0.0', port=7010, debug=debug, use_reloader=False)
