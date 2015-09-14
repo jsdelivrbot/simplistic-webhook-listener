@@ -21,15 +21,15 @@ def _restart():
 @set_parsers(URLEncodedParser)
 def post_hook():
     logging.debug('post')
-    gitlab_header = request.headers.get('X-Gitlab-Event')
-    if gitlab_header :
-        response = 'Executing restart action at {}'.format(
-            datetime.datetime.now())
-        logging.info(response)
-        _restart()
-    else:
-        response = 'Not gitlab, no action'
-        logging.info(response)
+    #gitlab_header = request.headers.get('X-Gitlab-Event')
+    #if gitlab_header :
+    response = 'Executing restart action at {}'.format(
+        datetime.datetime.now())
+    logging.info(response)
+    _restart()
+    #else:
+    #    response = 'Not gitlab, no action'
+    #    logging.info(response)
     return response, 200
 
 if __name__ == '__main__':
