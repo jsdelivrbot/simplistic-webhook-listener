@@ -42,6 +42,8 @@ if __name__ == '__main__':
     parser.add_argument("--logstash",
                         help="log everything (in addition) to logstash "
                              ", give host:port")
+    parser.add_argument("--port",
+                        help="port to use for listening")
     args = parser.parse_args()
 
     if args.debug:
@@ -65,5 +67,8 @@ if __name__ == '__main__':
     else:
         logging.error('--command <script> is required for this webhook')
         exit(1)
-
-    app.run(host='0.0.0.0', port=7010, debug=debug, use_reloader=False)
+    if args.port:
+        port = int(args.port)
+    else:
+        port = 7010
+    app.run(host='0.0.0.0', port=port, debug=debug, use_reloader=False)
