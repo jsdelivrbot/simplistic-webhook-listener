@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title>Logs</title>
+</head>
+<body>
+<h1>Logs</h1>
+<table>
+    <thead align="center"><td>Timestamp</td></thead>
+{% for record in logs%}
+  <tr><td><a href="{{ record }}">{{ record|e }}</a></td></tr>
+{% endfor %}
+</table>
+</body>
+</html>

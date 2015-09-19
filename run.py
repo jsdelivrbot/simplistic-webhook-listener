@@ -3,34 +3,55 @@ import datetime
 import logging
 import subprocess
 
-from flask import Flask, request
-from flask_api.decorators import set_parsers
-from flask_api.parsers import URLEncodedParser
+from flask import Flask, render_template
 
 app = Flask(__name__)
-
 command = ''
+log = dict()
 
 
 def _restart():
     global command
-    return subprocess.call(command, shell=True)
-
+    success = True
+    try:
+        output = subprocess.check_output([command])
+    except Exception as err:
+        success = False
+        output = 'Error {} while executing {}'.format(err, command)
+    return success, output
 
 @app.route('/', methods=['POST'])
-@set_parsers(URLEncodedParser)
 def post_hook():
+    global log
     logging.debug('post')
     #gitlab_header = request.headers.get('X-Gitlab-Event')
     #if gitlab_header :
-    response = 'Executing restart action at {}'.format(
-        datetime.datetime.now())
+    current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    response = 'Executing restart action at {}'.format(current_time)
     logging.info(response)
-    _restart()
+    success, output = _restart()
+    log[current_time] = output
+
+    if success:
+        return output, 200
+    else:
+        return output, 500
     #else:
     #    response = 'Not gitlab, no action'
     #    logging.info(response)
-    return response, 200
+
+
+@app.route('/logs/', methods=['GET'])
+def get_logs():
+    global log
+    return render_template('logs.html', logs=log.keys())
+
+
+@app.route('/logs/<log_id>', methods=['GET'])
+def get_log(log_id):
+    global log
+    return render_template('log.html', log_timestamp=log_id, content=log[log_id])
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

@@ -1,0 +1,11 @@
+<html>
+
+<body>
+<h1>Deployment logs {{ log_timestamp }}</h1>
+<a href=" {{ url_for('get_logs') }} "><< Back to overview</a>
+    <pre class="prettyprint linenums">
+        {{ content }}
+    </pre>
+<script src="https://google-code-prettify.googlecode.com/svn/loader/run_prettify.js?lang=sh"></script>
+</body>
+</html>
