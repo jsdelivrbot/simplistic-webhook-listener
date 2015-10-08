@@ -132,18 +132,21 @@ if __name__ == '__main__':
 
     if args.debug:
         logging.basicConfig(format='%(message)s', level=logging.DEBUG)
-        debug=True
+        debug = True
     else:
         logging.basicConfig(format='%(message)s', level=logging.INFO)
-        debug=False
+        debug = False
     logger = logging.getLogger()
     logger.addHandler(logging.StreamHandler())
     if args.logstash:
-        import logstash
-        host, port = args.logstash.split(':')
-        logger.addHandler(logstash.TCPLogstashHandler(host=host,
-                                                      port=int(port),
-                                                      version=1))
+        try:
+            import logstash
+            host, port = args.logstash.split(':')
+            logger.addHandler(logstash.TCPLogstashHandler(host=host,
+                                                          port=int(port),
+                                                          version=1))
+        except ImportError as err:
+            logging.error('Logstash module not available %s', err)
 
     if args.command:
         global command
