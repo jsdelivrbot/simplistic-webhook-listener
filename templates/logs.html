@@ -1,16 +1,21 @@
-<!DOCTYPE html>
-<html>
-<head lang="en">
-    <meta charset="UTF-8">
-    <title>Logs</title>
-</head>
-<body>
-<h1>Logs</h1>
-<table>
-    <thead align="center"><td>Timestamp</td></thead>
-{% for record in logs%}
-  <tr><td><a href="{{ record }}">{{ record|e }}</a></td></tr>
-{% endfor %}
-</table>
-</body>
-</html>
+{% extends "bootstrap/base.html" %}
+{% block title %} Logs {% endblock %}
+{% block content %}
+    <h1>This log is showing the output of the webhook reload command</h1>
+    <table class="table table-bordered" style="width: 50%;">
+        <thead align="center">
+            <td>Timestamp</td>
+            <td>Repository</td>
+            <td>Success</td>
+        </thead>
+    {% for item in content|sort(reverse=True) %}
+        <tbody align="center">
+            <tr {% if item.success == true %} class="success" {% else %} class="danger" {% endif %}>
+                <td><a href="{{ item.timestamp }}">{{ item.timestamp|datetime|e }}</a></td>
+                <td>{{ item.repository|e }}</td>
+                <td>{{ item.success|e }}</td>
+            </tr>
+        </tbody>
+    {% endfor %}
+    </table>
+{% endblock %}

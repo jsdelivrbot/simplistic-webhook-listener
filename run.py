@@ -1,13 +1,51 @@
 import argparse
-import datetime
 import logging
+import os
 import subprocess
+import time
 
-from flask import Flask, render_template
+from datetime import datetime
+from flask import Flask, render_template, send_from_directory as send_file
+from flask_bootstrap import Bootstrap
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///logs.db'
+Bootstrap(app)
+db = SQLAlchemy(app)
+
 command = ''
-log = dict()
+
+
+class WebhookCall(db.Model):
+    __tablename__ = 'webhookcall'
+    timestamp = db.Column(db.Integer, primary_key=True, unique=True)
+    repository = db.Column(db.String(20))
+    success = db.Column(db.Boolean)
+    results = db.relationship('WebhookCallResult',
+                              backref=db.backref('webhookcall'))
+
+    def __init__(self, timestamp, repository, success):
+        self.timestamp = timestamp
+        self.repository = repository
+        self.success = success
+
+    def __repr__(self):
+        return '<WebhookCall %r>' % self.timestamp
+
+
+class WebhookCallResult(db.Model):
+    __tablename__ = 'webhookcallresult'
+    id = db.Column(db.Integer, primary_key=True)
+    timestamp = db.Column(db.Integer, db.ForeignKey('webhookcall.timestamp'))
+    output = db.Column(db.String(1000))
+
+    def __init__(self, timestamp, output):
+        self.timestamp = timestamp
+        self.output = output
+
+    def __repr__(self):
+        return '<WebhookCallResult %r>' % self.id
 
 
 def _restart():
@@ -20,37 +58,62 @@ def _restart():
         output = 'Error {} while executing {}'.format(err, command)
     return success, output
 
-@app.route('/', methods=['POST'])
-def post_hook():
-    global log
-    logging.debug('post')
-    #gitlab_header = request.headers.get('X-Gitlab-Event')
-    #if gitlab_header :
-    current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    response = 'Executing restart action at {}'.format(current_time)
-    logging.info(response)
-    success, output = _restart()
-    log[current_time] = output
 
-    if success:
-        return output, 200
+@app.route('/', methods=['POST'])
+@app.route('/<hooking_repository>/', methods=['POST'])
+def post_hook(hooking_repository=None):
+    if hooking_repository:
+        if len(hooking_repository) < 20:
+            repository = hooking_repository
+        else:
+            repository = hooking_repository[0:20]
     else:
-        return output, 500
-    #else:
-    #    response = 'Not gitlab, no action'
-    #    logging.info(response)
+        repository = 'unknown'
+    current_time = int(time.time())
+    success, output = _restart()
+    output = output.strip()
+    item = WebhookCall.query.filter_by(timestamp=current_time).first()
+    if not item:
+        db.session.add(WebhookCall(current_time, repository, success))
+        db.session.add(WebhookCallResult(timestamp=current_time,
+                                         output=output))
+    else:
+        db.session.add(WebhookCallResult(timestamp=current_time,
+                                         output=output))
+    db.session.commit()
+
+    response = 'Executed restart action at {} with output:\n{}'\
+        .format(format_datetime(current_time), output)
+    if success:
+        return response, 200
+    else:
+        return response, 500
 
 
 @app.route('/logs/', methods=['GET'])
 def get_logs():
-    global log
-    return render_template('logs.html', logs=log.keys())
+    return render_template('logs.html', content=WebhookCall.query.all())
 
 
 @app.route('/logs/<log_id>', methods=['GET'])
 def get_log(log_id):
-    global log
-    return render_template('log.html', log_timestamp=log_id, content=log[log_id])
+    logs = WebhookCallResult.query.filter(
+        WebhookCallResult.timestamp == log_id).all()
+    if logs:
+        return render_template('log.html', timestamp=log_id, logs=logs)
+    else:
+        return '', 404
+
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_file(os.path.join(app.root_path, 'static'), 'favicon.ico')
+
+
+@app.template_filter('datetime')
+def format_datetime(value):
+    return datetime.fromtimestamp(int(value))\
+        .strftime("%Y-%m-%d_%H-%M-%S")
 
 
 if __name__ == '__main__':
@@ -92,4 +155,5 @@ if __name__ == '__main__':
         port = int(args.port)
     else:
         port = 7010
+    db.create_all()
     app.run(host='0.0.0.0', port=port, debug=debug, use_reloader=False)
