@@ -33,6 +33,12 @@ class WebhookCall(db.Model):
     def __repr__(self):
         return '<WebhookCall %r>' % self.timestamp
 
+    def __gt__(self, other):
+        return True if int(self.timestamp) > int(other.timestamp) else False
+
+    def __lt__(self, other):
+        return True if int(self.timestamp) < int(other.timestamp) else False
+
 
 class WebhookCallResult(db.Model):
     __tablename__ = 'webhookcallresult'
