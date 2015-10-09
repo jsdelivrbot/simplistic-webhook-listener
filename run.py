@@ -54,9 +54,8 @@ def _restart():
     try:
         output = subprocess.check_output([command])
     except Exception as err:
-        success = False
         output = 'Error {} while executing {}'.format(err, command)
-    return success, output
+    return output
 
 
 @app.route('/', methods=['POST'])
@@ -70,7 +69,8 @@ def post_hook(hooking_repository=None):
     else:
         repository = 'unknown'
     current_time = int(time.time())
-    success, output = _restart()
+    output = _restart()
+    success = False if 'Error' in output else True
     output = output.strip()
     item = WebhookCall.query.filter_by(timestamp=current_time).first()
     if not item:
