@@ -58,7 +58,7 @@ def _restart():
     global command
     success = True
     try:
-        output = subprocess.check_output([command])
+        output = subprocess.check_output(command.split())
     except Exception as err:
         output = 'Error {} while executing {}'.format(err, command)
     return output
