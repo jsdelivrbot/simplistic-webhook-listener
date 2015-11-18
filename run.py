@@ -85,36 +85,39 @@ def _restart():
 def post_hook(hooking_repository=None):
     global token
     auth_header = request.headers.get('Authorization')
-    if token and auth_header and compare_func(unicode(token), auth_header):
-        if hooking_repository:
-            if len(hooking_repository) < 20:
-                repository = hooking_repository
-            else:
-                repository = hooking_repository[0:20]
-        else:
-            repository = 'unknown'
-        current_time = int(time.time())
-        output = _restart()
-        success = False if 'Error' in output else True
-        output = output.strip()
-        item = WebhookCall.query.filter_by(timestamp=current_time).first()
-        if not item:
-            db.session.add(WebhookCall(current_time, repository, success))
-            db.session.add(WebhookCallResult(timestamp=current_time,
-                                             output=output))
-        else:
-            db.session.add(WebhookCallResult(timestamp=current_time,
-                                             output=output))
-        db.session.commit()
-
-        response = 'Executed restart action at {} with output:\n{}'\
-            .format(format_datetime(current_time), output)
-        if success:
-            return response, 200
-        else:
-            return response, 500
+    if not token:
+        pass
+    elif token and auth_header and compare_func(unicode(token), auth_header):
+        pass
     else:
         return 'Access forbidden', 403
+    if hooking_repository:
+        if len(hooking_repository) < 20:
+            repository = hooking_repository
+        else:
+            repository = hooking_repository[0:20]
+    else:
+        repository = 'unknown'
+    current_time = int(time.time())
+    output = _restart()
+    success = False if 'Error' in output else True
+    output = output.strip()
+    item = WebhookCall.query.filter_by(timestamp=current_time).first()
+    if not item:
+        db.session.add(WebhookCall(current_time, repository, success))
+        db.session.add(WebhookCallResult(timestamp=current_time,
+                                         output=output))
+    else:
+        db.session.add(WebhookCallResult(timestamp=current_time,
+                                         output=output))
+    db.session.commit()
+
+    response = 'Executed restart action at {} with output:\n{}'\
+        .format(format_datetime(current_time), output)
+    if success:
+        return response, 200
+    else:
+        return response, 500
 
 
 @app.route('/logs/', methods=['GET'])
