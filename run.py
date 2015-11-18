@@ -87,8 +87,13 @@ def post_hook(hooking_repository=None):
     auth_header = request.headers.get('Authorization')
     if not token:
         pass
-    elif token and auth_header and compare_func(unicode(token), auth_header):
-        pass
+    elif auth_header:
+        valid = False
+        for item in token.split(';'):
+            if compare_func(unicode(item), auth_header):
+                valid = True
+        if not valid:
+            return 'Access forbidden', 403
     else:
         return 'Access forbidden', 403
     if hooking_repository:
