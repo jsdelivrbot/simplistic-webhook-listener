@@ -125,6 +125,7 @@ def post_hook(hooking_repository=None):
         return response, 500
 
 
+@app.route('/', methods=['GET'])
 @app.route('/logs/', methods=['GET'])
 def get_logs():
     return render_template('logs.html', content=WebhookCall.query.all())
