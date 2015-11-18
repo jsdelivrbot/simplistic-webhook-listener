@@ -2,12 +2,15 @@ import argparse
 import logging
 import os
 import subprocess
+import sys
 import time
 
 from datetime import datetime
-from flask import Flask, render_template, send_from_directory as send_file
+from flask import Flask, render_template, request,\
+    send_from_directory as send_file
 from flask_bootstrap import Bootstrap
 from flask_sqlalchemy import SQLAlchemy
+
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///logs.db'
@@ -15,6 +18,20 @@ Bootstrap(app)
 db = SQLAlchemy(app)
 
 command = ''
+token = False
+
+
+def _compare(token, auth_header):
+    logging.debug('Using own compare function for authorization token')
+    # not very performant, but posts are not very often
+    # and this code is not used in new python versions.
+    valid = True
+    if len(token) != len(auth_header):
+        return False
+    for iterator, item in enumerate(token):
+        if item != auth_header[iterator]:
+            valid = False
+    return valid
 
 
 class WebhookCall(db.Model):
@@ -56,7 +73,6 @@ class WebhookCallResult(db.Model):
 
 def _restart():
     global command
-    success = True
     try:
         output = subprocess.check_output(command.split())
     except Exception as err:
@@ -67,33 +83,38 @@ def _restart():
 @app.route('/', methods=['POST'])
 @app.route('/<hooking_repository>/', methods=['POST'])
 def post_hook(hooking_repository=None):
-    if hooking_repository:
-        if len(hooking_repository) < 20:
-            repository = hooking_repository
+    global token
+    auth_header = request.headers.get('Authorization')
+    if token and auth_header and compare_func(unicode(token), auth_header):
+        if hooking_repository:
+            if len(hooking_repository) < 20:
+                repository = hooking_repository
+            else:
+                repository = hooking_repository[0:20]
         else:
-            repository = hooking_repository[0:20]
-    else:
-        repository = 'unknown'
-    current_time = int(time.time())
-    output = _restart()
-    success = False if 'Error' in output else True
-    output = output.strip()
-    item = WebhookCall.query.filter_by(timestamp=current_time).first()
-    if not item:
-        db.session.add(WebhookCall(current_time, repository, success))
-        db.session.add(WebhookCallResult(timestamp=current_time,
-                                         output=output))
-    else:
-        db.session.add(WebhookCallResult(timestamp=current_time,
-                                         output=output))
-    db.session.commit()
+            repository = 'unknown'
+        current_time = int(time.time())
+        output = _restart()
+        success = False if 'Error' in output else True
+        output = output.strip()
+        item = WebhookCall.query.filter_by(timestamp=current_time).first()
+        if not item:
+            db.session.add(WebhookCall(current_time, repository, success))
+            db.session.add(WebhookCallResult(timestamp=current_time,
+                                             output=output))
+        else:
+            db.session.add(WebhookCallResult(timestamp=current_time,
+                                             output=output))
+        db.session.commit()
 
-    response = 'Executed restart action at {} with output:\n{}'\
-        .format(format_datetime(current_time), output)
-    if success:
-        return response, 200
+        response = 'Executed restart action at {} with output:\n{}'\
+            .format(format_datetime(current_time), output)
+        if success:
+            return response, 200
+        else:
+            return response, 500
     else:
-        return response, 500
+        return 'Access forbidden', 403
 
 
 @app.route('/logs/', methods=['GET'])
@@ -132,6 +153,8 @@ if __name__ == '__main__':
     parser.add_argument("--logstash",
                         help="log everything (in addition) to logstash "
                              ", give host:port")
+    parser.add_argument("--token",
+                        help="use token for authenticating a remote service")
     parser.add_argument("--port",
                         help="port to use for listening")
     args = parser.parse_args()
@@ -153,6 +176,20 @@ if __name__ == '__main__':
                                                           version=1))
         except ImportError as err:
             logging.error('Logstash module not available %s', err)
+
+    if args.token:
+        major = sys.version_info.major
+        minor = sys.version_info.minor
+        micro = sys.version_info.micro
+        if (major == 2 and minor <= 7 and micro < 7)\
+                or (major == 3 and minor < 3):
+            compare_func = _compare
+        else:
+            import hmac
+            compare_func = hmac.compare_digest
+
+        global token
+        token = args.token
 
     if args.command:
         global command
