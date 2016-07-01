@@ -1,5 +1,4 @@
-import sys
-sys.path.insert(0, '/home/webhook/webhook')
+
 
 from run import app as application
 
