@@ -29,7 +29,7 @@ class Hooker(object):
         try:
             self.tokens = config['TOKENS']
         except KeyError as err:
-            logging.debug('No tokens provided, no authentication')
+            logging.info('No tokens provided, no authentication')
             self.tokens = False
 
     def authenticate(self, request):
