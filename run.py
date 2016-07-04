@@ -45,6 +45,7 @@ configure_logging()
 hook_executor = Hooker(app.config)
 Bootstrap(app)
 db = SQLAlchemy(app)
+db.create_all()
 
 
 class WebhookCall(db.Model):
@@ -157,6 +158,4 @@ if __name__ == '__main__':
         port = int(app.config['PORT'])
     except KeyError as err:
         port = 7010
-
-    db.create_all()
     app.run(host='0.0.0.0', port=port, debug=debug, use_reloader=False)
