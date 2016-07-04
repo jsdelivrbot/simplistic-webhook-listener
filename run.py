@@ -181,7 +181,8 @@ if __name__ == '__main__':
             global authenticate
             authenticate = locate('hooker.{}.authenticate'.format(args.hooker))
             global assess_reload
-            assess_reload = locate('hooker.{}.assess_reload'.format(args.hooker))
+            assess_reload = locate('hooker.{}.assess_reload'
+                                   .format(args.hooker))
         except ImportError as err:
             logging.error('Logstash module not available %s', err)
     else:

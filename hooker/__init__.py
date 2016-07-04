@@ -19,6 +19,6 @@ def compare(tokens, auth_header):
                     valid = False
             return valid
         else:
-            logging.debug('Using hmac compare function for authorization token')
+            logging.debug('Using hmac compare function for auth token')
             import hmac
             return hmac.compare_digest(unicode(token), auth_header)
