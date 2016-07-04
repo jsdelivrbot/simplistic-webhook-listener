@@ -1,8 +1,5 @@
-import argparse
 import logging
 import os
-import subprocess
-import sys
 import time
 
 from datetime import datetime
@@ -10,16 +7,44 @@ from flask import Flask, render_template, request,\
     send_from_directory as send_file
 from flask_bootstrap import Bootstrap
 from flask_sqlalchemy import SQLAlchemy
-from pydoc import locate
+from flask_iniconfig import INIConfig
+from hooker import Hooker
+
+
+def configure_logging():
+    global debug
+    try:
+        debug = app.config['DEBUG']
+        if debug:
+            logging.basicConfig(format='%(message)s', level=logging.DEBUG)
+        else:
+            logging.basicConfig(format='%(message)s', level=logging.INFO)
+    except KeyError as err:
+        debug = False
+
+    try:
+        logstash_config = app.config['LOGSTASH']
+        logger = logging.getLogger()
+        import logstash
+        host, ls_port = logstash_config.split(':')
+        logger.addHandler(logstash.TCPLogstashHandler(host=host,
+                                                      port=int(ls_port),
+                                                      version=1))
+    except ImportError as err:
+        logstash = None
+        logging.error('python-logstash module not available %s', err)
+    except KeyError as err:
+        pass
 
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///logs.db'
+INIConfig(app)
+app.config.from_inifile_sections('config.ini', section_list=['default'])
+app.config.setdefault('SQLALCHEMY_TRACK_MODIFICATIONS', True)
+configure_logging()
+hook_executor = Hooker(app.config)
 Bootstrap(app)
 db = SQLAlchemy(app)
-
-command = ''
-tokens = False
 
 
 class WebhookCall(db.Model):
@@ -59,25 +84,12 @@ class WebhookCallResult(db.Model):
         return '<WebhookCallResult %r>' % self.id
 
 
-def _restart():
-    global command
-    try:
-        output = subprocess.check_output(command.split())
-    except Exception as err:
-        output = 'Error {} while executing {}'.format(err, command)
-    return output
-
-
 @app.route('/', methods=['POST'])
 @app.route('/<hooking_repository>/', methods=['POST'])
 def post_hook(hooking_repository=None):
-    global tokens
-    if tokens:
-        if not authenticate(tokens, request):
-            return 'Access forbidden', 403
+    if not hook_executor.authenticate(request):
+        return 'Access forbidden', 403
 
-    for item in request.headers:
-        logging.debug(item)
     if hooking_repository:
         if len(hooking_repository) < 20:
             repository = hooking_repository
@@ -86,9 +98,9 @@ def post_hook(hooking_repository=None):
     else:
         repository = 'unknown'
 
-    if assess_reload(request):
+    if hook_executor.assess_reload(request):
         current_time = int(time.time())
-        output = _restart()
+        output = hook_executor.execute_command()
         success = False if output.startswith('Error') else True
         output = output.strip()
         item = WebhookCall.query.filter_by(timestamp=current_time).first()
@@ -141,65 +153,10 @@ def format_datetime(value):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--command",
-                        help="reload command that should be executed")
-    parser.add_argument("--debug",
-                        help="get debug output",
-                        action="store_true")
-    parser.add_argument("--logstash",
-                        help="log everything (in addition) to logstash "
-                             ", give host:port")
-    parser.add_argument("--tokens",
-                        help="use tokens for authenticating a remote service")
-    parser.add_argument("--port",
-                        help="port to use for listening")
-    parser.add_argument("--hooker",
-                        help="which service is hooking? github,gitlab,travis")
-    args = parser.parse_args()
-
-    if args.debug:
-        logging.basicConfig(format='%(message)s', level=logging.DEBUG)
-        debug = True
-    else:
-        logging.basicConfig(format='%(message)s', level=logging.INFO)
-        debug = False
-    logger = logging.getLogger()
-    logger.addHandler(logging.StreamHandler())
-    if args.logstash:
-        try:
-            import logstash
-            host, port = args.logstash.split(':')
-            logger.addHandler(logstash.TCPLogstashHandler(host=host,
-                                                          port=int(port),
-                                                          version=1))
-        except ImportError as err:
-            logging.error('Logstash module not available %s', err)
-
-    if args.hooker:
-        try:
-            global authenticate
-            authenticate = locate('hooker.{}.authenticate'.format(args.hooker))
-            global assess_reload
-            assess_reload = locate('hooker.{}.assess_reload'
-                                   .format(args.hooker))
-        except ImportError as err:
-            logging.error('Logstash module not available %s', err)
-    else:
-        logging.error('--hooker is required, gitlab/github/travis')
-        exit(1)
-    if args.tokens:
-        global tokens
-        tokens = args.tokens
-    if args.command:
-        global command
-        command = args.command
-    else:
-        logging.error('--command <script> is required for this webhook')
-        exit(1)
-    if args.port:
-        port = int(args.port)
-    else:
+    try:
+        port = int(app.config['PORT'])
+    except KeyError as err:
         port = 7010
+
     db.create_all()
     app.run(host='0.0.0.0', port=port, debug=debug, use_reloader=False)
