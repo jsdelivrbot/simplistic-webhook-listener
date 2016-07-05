@@ -39,7 +39,7 @@ def configure_logging():
 
 app = Flask(__name__)
 INIConfig(app)
-app.config.from_inifile_sections('config.ini', section_list=['default'])
+app.config.from_inifile_sections('/etc/hooker_config.ini', section_list=['default'])
 app.config.setdefault('SQLALCHEMY_TRACK_MODIFICATIONS', True)
 configure_logging()
 hook_executor = Hooker(app.config)
