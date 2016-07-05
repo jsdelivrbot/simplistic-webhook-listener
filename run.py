@@ -6,9 +6,9 @@ from datetime import datetime
 from flask import Flask, render_template, request,\
     send_from_directory as send_file
 from flask_bootstrap import Bootstrap
-from flask_sqlalchemy import SQLAlchemy
 from flask_iniconfig import INIConfig
 from hooker import Hooker
+from persistency import db, WebhookCall, WebhookCallResult
 
 
 def configure_logging():
@@ -39,50 +39,14 @@ def configure_logging():
 
 app = Flask(__name__)
 INIConfig(app)
-app.config.from_inifile_sections('/etc/hooker_config.ini', section_list=['default'])
+app.config.from_inifile_sections('config.ini', section_list=['default'])
 app.config.setdefault('SQLALCHEMY_TRACK_MODIFICATIONS', True)
 configure_logging()
 hook_executor = Hooker(app.config)
 Bootstrap(app)
-db = SQLAlchemy(app)
-db.create_all()
-
-
-class WebhookCall(db.Model):
-    __tablename__ = 'webhookcall'
-    timestamp = db.Column(db.Integer, primary_key=True, unique=True)
-    repository = db.Column(db.String(20))
-    success = db.Column(db.Boolean)
-    results = db.relationship('WebhookCallResult',
-                              backref=db.backref('webhookcall'))
-
-    def __init__(self, timestamp, repository, success):
-        self.timestamp = timestamp
-        self.repository = repository
-        self.success = success
-
-    def __repr__(self):
-        return '<WebhookCall %r>' % self.timestamp
-
-    def __gt__(self, other):
-        return True if int(self.timestamp) > int(other.timestamp) else False
-
-    def __lt__(self, other):
-        return True if int(self.timestamp) < int(other.timestamp) else False
-
-
-class WebhookCallResult(db.Model):
-    __tablename__ = 'webhookcallresult'
-    id = db.Column(db.Integer, primary_key=True)
-    timestamp = db.Column(db.Integer, db.ForeignKey('webhookcall.timestamp'))
-    output = db.Column(db.String(1000))
-
-    def __init__(self, timestamp, output):
-        self.timestamp = timestamp
-        self.output = output
-
-    def __repr__(self):
-        return '<WebhookCallResult %r>' % self.id
+db.init_app(app)
+with app.app_context():
+    db.create_all()
 
 
 @app.route('/', methods=['POST'])
