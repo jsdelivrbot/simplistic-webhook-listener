@@ -4,3 +4,5 @@ python-logstash==0.4.6
 Flask-Bootstrap==3.3.6.0
 Flask-SQLAlchemy==2.1
 flask-iniconfig==0.0.9
+requests
+pyOpenSSL

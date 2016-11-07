@@ -1,3 +1,5 @@
+"""A Hooker object that can authenticate and execute subcommands."""
+
 import logging
 import subprocess
 import sys
@@ -6,8 +8,10 @@ from pydoc import locate
 
 
 class Hooker(object):
+    """Actual Hooker object. Backend for authentication injected via config."""
 
     def __init__(self, config):
+        """Constructor for Hooker object."""
         try:
             hooker = config['HOOKER']
             self.delegate_authentication = locate('hooker.{}.authenticate'
@@ -26,19 +30,14 @@ class Hooker(object):
             logging.error('COMMAND is required to know what the webhook'
                           ' should execute on this server')
             exit(1)
-        try:
-            self.tokens = config['TOKENS']
-        except KeyError as err:
-            logging.info('No tokens provided, no authentication')
-            self.tokens = False
+        self.config = config
 
     def authenticate(self, request):
-        if self.tokens:
-            return self.delegate_authentication(self.tokens, request)
-        else:
-            return True
+        """Authenticate based on injected backend."""
+        return self.delegate_authentication(self.config, request)
 
     def execute_command(self):
+        """Execute a shell command and return output."""
         try:
             output = subprocess.check_output(self.command.split())
         except Exception as err:
@@ -47,7 +46,16 @@ class Hooker(object):
 
 
 def compare(tokens, auth_header):
+    """
+    Compare tokens, only required on old Python versions.
 
+    Take a list of tokens and compare it to a token from the actual webhook
+    request.
+
+    :param tokens: list of strings, seperated with ;
+    :param auth_header: a string
+    :return: boolean
+    """
     major = sys.version_info.major
     minor = sys.version_info.minor
     micro = sys.version_info.micro

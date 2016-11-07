@@ -6,5 +6,6 @@ before_script:
 validation:
   script:
     - find . -name "*.py" -exec pep8 {} \;
+    - find . -name "*.py" -exec pep257 {} \;
     - radon mi hooker
     - radon cc hooker

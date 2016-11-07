@@ -1,3 +1,4 @@
+"""Start script for Hooker."""
 import logging
 import os
 import time
@@ -12,6 +13,7 @@ from persistency import db, WebhookCall, WebhookCallResult
 
 
 def configure_logging():
+    """Configure debug logging based on app config."""
     global debug
     try:
         debug = app.config['DEBUG']
@@ -52,6 +54,7 @@ with app.app_context():
 @app.route('/', methods=['POST'])
 @app.route('/<hooking_repository>/', methods=['POST'])
 def post_hook(hooking_repository=None):
+    """Post request behaviour."""
     if not hook_executor.authenticate(request):
         return 'Access forbidden', 403
 
@@ -92,12 +95,14 @@ def post_hook(hooking_repository=None):
 @app.route('/', methods=['GET'])
 @app.route('/logs/', methods=['GET'])
 def get_logs():
+    """GET request behaviour on log list."""
     return render_template('logs.html', content=WebhookCall.query.all())
 
 
 @app.route('/<log_id>/', methods=['GET'])
 @app.route('/logs/<log_id>', methods=['GET'])
 def get_log(log_id):
+    """GET request behaviour for one log."""
     logs = WebhookCallResult.query.filter(
         WebhookCallResult.timestamp == log_id).all()
     if logs:
@@ -108,11 +113,13 @@ def get_log(log_id):
 
 @app.route('/favicon.ico')
 def favicon():
+    """Favicon due to lots of 404 requests."""
     return send_file(os.path.join(app.root_path, 'static'), 'favicon.ico')
 
 
 @app.template_filter('datetime')
 def format_datetime(value):
+    """Datetime formatter."""
     return datetime.fromtimestamp(int(value))\
         .strftime("%Y-%m-%d_%H-%M-%S")
 
