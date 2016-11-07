@@ -22,7 +22,7 @@ def authenticate(config, request):
     travis_url = config['PUBKEY_URL']
 
     signature = _get_signature(request)
-    json_payload = parse_qs(request.body)['payload'][0]
+    json_payload = parse_qs(request.data)['payload'][0]
 
     try:
         public_key = _get_travis_public_key(travis_url)
