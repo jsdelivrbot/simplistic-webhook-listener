@@ -60,7 +60,7 @@ def check_authorized(signature, public_key, payload):
 
 def _get_signature(request):
     """Extract the raw bytes of the request signature provided by travis."""
-    signature = request.META['HTTP_SIGNATURE']
+    signature = request.headers.get('Signature')
     return base64.b64decode(signature)
 
 
