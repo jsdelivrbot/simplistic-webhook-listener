@@ -18,7 +18,7 @@ def authenticate(config, request):
         tokens = config['TOKENS']
     except KeyError as err:
         logging.info('No tokens provided, no authentication')
-        return False
+        return True
 
     auth_header = request.headers.get('X-Gitlab-Token')
     return compare(tokens, auth_header) if auth_header else False
